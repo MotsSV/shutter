@@ -1,5 +1,6 @@
 from pygame import *
 from random import randint
+import time as pytime
  
 # фонова музика
 mixer.init()
@@ -23,8 +24,12 @@ clock = time.Clock()
 FPS = 60
 
 score = 0
+goal = 50
 lost = 0
 max_lost = 3
+life = 3
+bullet_count = 10
+reload_start_time = None
 
 # клас-батько для інших спрайтів
 class GameSprite(sprite.Sprite):
@@ -117,7 +122,8 @@ while run:
         if e.type == QUIT:
             run = False
         elif e.type == KEYDOWN:
-            if e.key == K_SPACE:
+            if e.key == K_SPACE and bullet_count > 0 and reload_start_time is None:
+                bullet_count -= 1
                 fire_sound.play()
                 ship.fire()
  
@@ -140,6 +146,45 @@ while run:
         ship.reset()
         monsters.draw(window)
         bullets.draw(window)
- 
+
+        if bullet_count == 0 and reload_start_time is None:
+            reload_start_time = pytime.time()
+        
+        if reload_start_time:
+            if pytime.time() - reload_start_time > 3:
+                bullet_count = 10
+                reload_start_time = None
+        
+        collides = sprite.groupcollide(monsters, bullets, True, True)
+        for collide in collides:
+            score = score + 1
+            monster = Enemy(
+                img_enemy,
+                randint(80, win_width - 80), -40, 80, 50, randint(1, 5)
+            )
+            monsters.add(monster)
+        
+        if sprite.spritecollide(ship, monsters, True):
+            life -= 1
+            monster = Enemy(
+                img_enemy,
+                randint(80, win_width - 80), -40, 80, 50, randint(1, 5)
+            )
+            monster.add(monster)
+
+        text_life = font1.render(str(life), 1, (255, 0, 0))
+        window.blit(text_life, (650, 10))
+
+        if life == 0 or lost >= max_lost:
+            finish = True
+            mixer.music.stop()
+            window.blit(lose, (200, 200))
+        
+        if score >= goal:
+            finish = True
+            mixer.music.stop()
+            window.blit(win, (200, 200))
+
+
     display.update()
     clock.tick(FPS)
